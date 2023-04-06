@@ -1,0 +1,125 @@
+/*
+Alexandre Mersch - Yassir Amazouz
+14 Mars 2023
+Nucleo-L476RG
+Lense-2021-Robot-Holonome
+
+Alimentation 12V max
+ */
+#include "mbed.h"
+#include "math.h"
+double k=0.8;
+
+
+InterruptIn encoche_moteur2_1(PB_1);
+InterruptIn encoche_moteur3_1(PB_10);
+InterruptIn encoche_moteur2_2(PB_2);
+InterruptIn encoche_moteur3_2(PB_4);
+
+
+                         
+
+// variable de vitesse des moteurs dans chaque sens
+PwmOut moteur2_rot_gauche(PB_14);
+PwmOut moteur2_rot_droite(PB_13);
+PwmOut moteur3_rot_gauche(PB_8);
+PwmOut moteur3_rot_droite(PC_9);
+
+//DigitalOut  enablePower(PB_3);
+int dist2;
+int dist3;
+int dist;
+double rc2;
+double rc3;
+int deltadist; //dist3-dist2
+
+//Ticker
+Ticker tic;
+Ticker tac;
+Ticker toc;
+
+
+
+// Déclaration fonction
+void fonction_interruption_moteur2(void);
+void fonction_interruption_moteur3(void);
+void asservissement_moteur3(void);
+void arrivee(void);
+void observation(void);
+
+
+int main(){
+    wait_us(1e6);
+
+dist=2000;
+dist2=dist;
+dist3=dist;
+rc2=k;
+rc3=k;
+moteur2_rot_gauche.period_ms(1);
+moteur3_rot_droite.period_ms(1);
+moteur2_rot_gauche.write(rc2);  
+moteur3_rot_droite.write(rc3);  
+encoche_moteur2_1.rise(&fonction_interruption_moteur2);
+encoche_moteur3_1.rise(&fonction_interruption_moteur3);
+encoche_moteur2_2.rise(&fonction_interruption_moteur2);
+encoche_moteur3_2.rise(&fonction_interruption_moteur3);
+tic.attach(&asservissement_moteur3,2000us);
+toc.attach(&arrivee,5000us);
+tac.attach(&observation,50000us);
+while(1){
+
+
+}
+}
+
+/* Routine d'interruption */
+void fonction_interruption_moteur2()
+{
+  // ACTIONS A REALISER LORS DE L'ACTIVATION DE L'INTERRUPTION 1
+dist2=dist2-1;
+
+}
+
+void fonction_interruption_moteur3()
+{
+  // ACTIONS A REALISER LORS DE L'ACTIVATION DE L'INTERRUPTION 1
+dist3=dist3-1;
+}
+    //Asservissement du moteur 3 sur le moteur 2
+void asservissement_moteur3(){
+    deltadist=dist3-dist2;
+    if (dist3<150){
+        if ((deltadist>4)&& (rc3<0.95)){
+        rc3=rc3+0.1;
+        }
+        else if ((deltadist<4) && (rc3>0.05)){
+        rc3=rc3-0.10; //diminution rapide pour compenser l'inertie
+        }
+    }
+    else{
+        if ((deltadist>3)&& (rc3<k+0.15)){
+        rc3=rc3+0.02;
+        }
+        else if ((deltadist<3) && (rc3>k-0.15)){  
+        rc3=rc3-0.1;//diminution rapide pour compenser l'inertie
+        }
+    }
+    moteur2_rot_gauche.write(rc2);  
+    moteur3_rot_droite.write(rc3);  
+}
+
+// affichage des données du système, pour quantifier son évolution
+void observation(){
+    if ((dist3>30) && (dist3<990)) {
+    printf("dist3=%d\r\n",dist3);
+    printf("dist2=%d\r\n",dist2);
+    printf("rc3=%lf\r\n",rc3);
+    printf("rc2=%lf\r\n",rc2);
+}
+
+}
+void arrivee(){
+rc2=1+k-exp(pow((1.0-(dist2*1.0)/(dist*1.0)),(dist*4/1000))*log(1+k)); //fonction étudiée pour valoir 1.8 quand on est loin de l'arrivée et diminue quand on s'approche.
+
+}
