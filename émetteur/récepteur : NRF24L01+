@@ -1,0 +1,60 @@
+/****************************************************************************/
+/*  Test MOD-24LR / nrf24L01                                                */
+/****************************************************************************/
+/*  LEnsE / Julien VILLEMEJANE       /   Institut d'Optique Graduate School */
+/****************************************************************************/
+/*  Brochage                                                                */
+/*      TO COMPLETE                                                         */
+/****************************************************************************/
+/*  Test réalisé sur Nucléo-F411RE                                          */
+/****************************************************************************/
+
+#include "mbed.h"
+#include "MOD24_NRF.h"
+#define TRANSFER_SIZE   4
+
+nRF24L01P       my_mod(D11, D12, D13, PA_12, PA_11, PB_12);
+
+Serial          pc(USBTX, USBRX);
+DigitalIn       my_bp(USER_BUTTON);
+
+char k;
+char    dataToSend[TRANSFER_SIZE] = {0xAA, 0x01, 0x10, 0xF0};
+char    dataReceived[TRANSFER_SIZE] = {0};
+int     rxDataCnt;
+
+int main() {
+    pc.printf("Test\r\n");
+    my_mod.powerUp();
+    wait_us(100000);
+    my_mod.setAirDataRate(NRF24L01P_DATARATE_250_KBPS);
+    my_mod.setRfFrequency(2400);
+    wait_us(100000);
+
+    pc.printf( "Type keys to test transfers:\r\n  (transfers are grouped into %d characters)\r\n", TRANSFER_SIZE );
+    pc.printf( "nRF24L01+ Frequency    : %d MHz\r\n",  my_mod.getRfFrequency() );
+    my_mod.setTransferSize( TRANSFER_SIZE );
+
+    my_mod.setReceiveMode();
+    my_mod.enable();
+    
+    while(1) {
+        if(my_bp == 1){
+            my_mod.write( NRF24L01P_PIPE_P0, dataToSend, TRANSFER_SIZE );
+            pc.printf( "SENDED\r\n");
+        }
+        if ( my_mod.readable() ) {
+
+            // ...read the data into the receive buffer
+            rxDataCnt = my_mod.read( NRF24L01P_PIPE_P0, dataReceived, TRANSFER_SIZE);
+
+            // Display the receive buffer contents via the host serial link
+            printf("\tD = ");
+            for ( int i = 0; i < rxDataCnt; i++ ) {
+                pc.printf(" %x \t", dataReceived[i]);
+            }
+            printf("\r\n");
+        }   
+        wait(1);        
+    }
+}
