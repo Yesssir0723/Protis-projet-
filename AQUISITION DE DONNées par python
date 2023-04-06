@@ -1,0 +1,15 @@
+import serial
+import serial.tools.list_ports 
+a=1 
+Temperatures=[] #liste de float qui va contenir les températures
+
+while a==1 :
+    ser = serial.Serial("COM22", baudrate=115200) 
+    read_bytes = ser.read(10) # on lit les 10 premiers caractères envoyés (par ex, cad 'T = 26.236')
+    print(read_bytes.decode("utf-8")) 
+    
+    Tstr=read_bytes.decode("utf-8") #on décode les bits en str
+   
+    Temp = float(Tstr[4:10]) # on convertit les srt en float et on ne garder que la valeur de température
+    Temperatures.append(Temp) 
+    ser.close()
