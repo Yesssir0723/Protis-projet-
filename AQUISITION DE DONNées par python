@@ -1,15 +1,41 @@
-import serial
-import serial.tools.list_ports 
-a=1 
-Temperatures=[] #liste de float qui va contenir les températures
+##
+# PROJET PROTIS ROBOT VERONICA 2023 - LEnsE
+# Auteurs : Aglaé BRIDONNEAU et Yassir AMAZOUZ
+# Matériel utilisé : 
+# - capteur de température et d'humidité, ref : Temp&Hum 14 CLICK
+# - modules bluetooth, ref : NRF24L01
+# - carte NUCLEO-L476RG
+# Code réalisé sur la version 3.9 de Python
+# Rôle : affiche la courbe de la température relevée en fonction du temps
+# Fonctionne avec le code "Bluetooth_et_Capteur_Recu" et "Bluetooth_et_Capteur_Envoie" réalisés sur Mbed
+##
 
-while a==1 :
-    ser = serial.Serial("COM22", baudrate=115200) 
+import serial
+import time
+import serial.tools.list_ports 
+import matplotlib.pyplot as plt
+
+start = time.time() #Temps quand l'acquisition commence
+end = time.time() #temps actuel qui est actualisé à chaque relevé de température
+Temperatures=[] #liste de float qui va contenir les températures 
+temps=[] #liste qui va contenir le temps en seconde à laquelle une donnée de température est relevée
+
+while end-start<30 : #tant que la durée est inférieure à un certain temps arbitraire en secondes
+    ser = serial.Serial("COM22", baudrate=115200) #on définit le port de communication à lire 
+    #print(end-start)
+    temps.append(end-start) #on ajoute à la liste "l'heure" de relevé
     read_bytes = ser.read(10) # on lit les 10 premiers caractères envoyés (par ex, cad 'T = 26.236')
-    print(read_bytes.decode("utf-8")) 
+    #print(read_bytes.decode("utf-8")) 
     
     Tstr=read_bytes.decode("utf-8") #on décode les bits en str
    
     Temp = float(Tstr[4:10]) # on convertit les srt en float et on ne garder que la valeur de température
-    Temperatures.append(Temp) 
-    ser.close()
+    Temperatures.append(Temp)  # on ajoute la température relevée à la liste
+    ser.close() # on ferme le port de communication
+    end = time.time() # on lit "l'heure" du prochain relevé
+ 
+# Tracé de courbe
+plt.plot(temps,Temperatures)
+plt.title('Température en fonction du temps')
+plt.ylabel('T en °C')
+plt.xlabel('Temps en secondes')
