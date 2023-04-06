@@ -120,7 +120,7 @@ class TempHum_14_Click{
 
 
 /**
- * FILENAME :        TEMPHUM_14_CLICK.h          
+ * FILENAME :        TEMPHUM_14_CLICK.cpp         
  *
  * DESCRIPTION :
  *       TEMPHUM_14_CLICK / Temperature and Humidity sensors from MikroE.
