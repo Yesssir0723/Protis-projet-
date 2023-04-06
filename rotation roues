@@ -1,0 +1,197 @@
+# Gérer la rotation du robot
+
+*Déterminer l’orientation du robot en fonction du nombre de tours qu’une roue fait en plus de l’autre*
+
+Si une roue fait un tour en plus, elle parcourt une distance d’environ 12 cm en plus de l’autre.
+
+![rotation_robot.PNG](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/8fc856a9-7fe6-4ae9-8b96-874a25151797/rotation_robot.png)
+
+Un tour complet (360°) correspond à une distance parcourue par la deuxième roue de 25x2xpi = 157 cm
+
+Pour une distance parcourue de 12 cm, cela correspond à un angle de 27,5°.
+
+Donc pour un tour de roue supplémentaire, le robot aura changé sa direction d’orientation de 27,5°.
+
+```cpp
+/*
+Alexandre Mersch - Yassir Amazouz
+28 Mars 2023
+Nucleo-L476RG
+Lense-2021-Robot-Holonome
+
+Alimentation 12V max
+ */
+#include "mbed.h"
+#include "math.h"
+double k=0.9; //valeur du RC maximal
+
+InterruptIn encoche_moteur2_1(PB_1);
+InterruptIn encoche_moteur3_1(PB_10);
+InterruptIn encoche_moteur2_2(PB_2);
+InterruptIn encoche_moteur3_2(PB_4);
+
+                         
+
+// variable de vitesse des moteurs dans chaque sens
+PwmOut moteur2_rot_gauche(PB_14);
+PwmOut moteur2_rot_droite(PB_13);
+PwmOut moteur3_rot_gauche(PB_8);
+PwmOut moteur3_rot_droite(PC_9);
+
+//DigitalOut  enablePower(PB_3);
+int dist2;
+int dist3;
+int dist;
+double rc2;
+double rc3;
+int deltadist; //dist3-dist2
+int angle;
+int rotation2;
+int rotation3;
+int rotation;
+int rot=0;
+
+//Ticker
+Ticker tic;
+Ticker tac;
+Ticker toc;
+Ticker tuc;
+
+// Déclaration fonction
+void fonction_interruption_moteur2(void);
+void fonction_interruption_moteur3(void);
+void fonction_interruption_rot_moteur2(void);
+void fonction_interruption_rot_moteur3(void);
+void asservissement_moteur3(void);
+void arrivee(void);
+void observation(void);
+void objectif_rotation(void);
+
+int main(){
+    wait_us(1e6);
+    angle=180; //en degré
+    rotation=(int)(angle*400.0/360.0+200); // traduit l'angle en nombre d'encoches à passer
+    rotation2=rotation;
+    rotation3=rotation;
+    dist=1000;
+    dist2=dist;
+    dist3=dist;
+
+    moteur2_rot_gauche.period_ms(1);
+    moteur3_rot_droite.period_ms(1);
+    moteur2_rot_gauche.write(rc2);  
+    moteur3_rot_droite.write(rc3);  
+    encoche_moteur2_1.rise(&fonction_interruption_moteur2);
+    encoche_moteur3_1.rise(&fonction_interruption_moteur3);
+    encoche_moteur2_2.rise(&fonction_interruption_moteur2);
+    encoche_moteur3_2.rise(&fonction_interruption_moteur3);
+
+    tic.attach(&asservissement_moteur3,2000us);
+    toc.attach(&arrivee,50000us);
+    tuc.attach(&objectif_rotation,50000us);
+    tac.attach(&observation,50000us);
+    while(1){
+    }
+}
+
+/* Routine d'interruption */
+
+void fonction_interruption_moteur2()
+{
+  // ACTIONS A REALISER LORS DE L'ACTIVATION DE L'INTERRUPTION 2
+    if (rot==1){
+        dist2=dist2-1;
+    }
+    else {
+        rotation2=rotation2-1;
+    }
+}
+
+void fonction_interruption_moteur3()
+{
+  // ACTIONS A REALISER LORS DE L'ACTIVATION DE L'INTERRUPTION 3
+    if (rot==1){
+        dist3=dist3-1;
+    }
+    else {
+        rotation3=rotation3-1;
+    }
+}
+
+    //Asservissement du moteur 3 sur le moteur 2
+void asservissement_moteur3(){
+    if (rot==1){
+        deltadist=dist3-dist2;
+        if (dist3<150){
+            if ((deltadist>4)&& (rc3<0.95)){
+                rc3=rc3+0.1;
+            }
+            else if ((deltadist<4) && (rc3>0.05)){
+                rc3=rc3-0.05; //diminution rapide pour compenser l'inertie
+            }
+        }
+        else{
+            if ((deltadist>3)&& (rc3<k+0.15)){
+                rc3=rc3+0.02;
+            }
+            else if ((deltadist<3) && (rc3>k-0.15)){  
+                rc3=rc3-0.1;//diminution rapide pour compenser l'inertie
+            }
+        }
+     
+    moteur3_rot_droite.write(rc3);
+    moteur2_rot_gauche.write(rc2);  
+    }
+}
+
+// affichage des données du système, pour quantifier son évolution et permet de passer de la phase rotation à la phase avancement;
+void observation(){
+    
+    printf("dist3=%d\r\n",dist3);
+    printf("dist2=%d\r\n",dist2);
+    printf("rot=%d\r\n",rot);
+    printf("rc3=%lf\r\n",rc3);
+    printf("rc2=%lf\r\n",rc2);
+    
+    if ((rotation<180)&&(rotation>-180)){
+        rot=1; // passage en phase progression droite
+    }
+
+}
+
+//Permet de faire tourner la roue gauche ou droite de la distance voulue, pour faire tourner la voiture d'un angle positif ou négatif.
+void objectif_rotation(){
+    if (rot==0){
+        if (rotation>0){
+            rc2=1+k-exp(pow((1.0-(rotation2*1.0)/(rotation*1.0)),(rotation*4/1000))*log(1+k)); //fonction étudiée pour valoir 1.8 quand on est loin de l'arrivée et diminue quand on s'approche.
+            rotation=rotation2;
+        }
+        else{
+            rc3=1+k-exp(pow((1.0-(rotation3*1.0)/(rotation*1.0)),(rotation*4/1000))*log(1+k));        
+            rotation=rotation3;
+        }
+        moteur3_rot_droite.write(rc3);
+        moteur2_rot_gauche.write(rc2);  
+    }
+}
+
+//Permet de faire avancer la roue gauche de la distance voulue, une fois la rotation effectuée.
+void arrivee(){
+    if (rot==1){
+        rc2=1+k-exp(pow((1.0-(dist2*1.0)/(dist*1.0)),(dist*4/1000))*log(1+k)); //fonction étudiée pour valoir 1.8 quand on est loin de l'arrivée et diminue quand on s'approche.
+    }
+}
+
+{
+    "requires": [ "bare-metal", "rtos-api", "sd","filesystem","fat_chan"],
+    "target_overrides": {
+      "*": {
+        "target.printf_lib": "minimal-printf",
+        "platform.minimal-printf-enable-floating-point": true,
+        "platform.stdio-baud-rate": 115200,
+        "target.components_add": [ "SD" ]
+      }
+    }
+}
+
+```
